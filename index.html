@@ -156,20 +156,15 @@
 				var params = 'username=' + $scope.username + '&email=' + $scope.email + '&auth_token=UzIyQTgwRjc2Ng==';
 				if (checkData($scope.username, $scope.email)) {
 					$http.post(urlJoin + '?' + params).then(function successCallback(response){
-						console.log(response.data);
-
 						var objJson = response.data;
 						var result = objJson.response.result;
 						var errorMessage = result.errorDetail;
 						if (errorMessage === undefined) {
-							//CHAT
-							// buildChatSection();
 							token = result;
 							$scope.user = new User($scope.username, $scope.email);
 							$scope.currentPageUrl = 'chat.htm';
 							$scope.listUsers();
-							// setLoggedInInfo(user);
-							// subscribe();
+							subscribe();
 						} else {
 							$scope.errorMessage = errorMessage;
 							$scope.validCridentials = false;
@@ -227,7 +222,6 @@
 
 				});
 			}
-			// $scope.listUsers();
 
 			function checkData (username, email) {
 				if ($scope.email === '') {
@@ -285,28 +279,172 @@
 			}
 
 			$scope.leaveChat = function() {
-
 				var urlLeave = url + "/leave";
 				var params = "username=" + $scope.username + "&auth_token=" + token;
-
-
 				$http.post(urlLeave + '?' + params).then(function successCallback(response){
-						
 					var objJson = response.data;
 					var result = objJson.response.result;
 					var errorMessage = result.errorDetail;
 					if (errorMessage === undefined) {
-						console.log(objJson);
+						var statusMessage = new StatusMessage($scope.user.username, $scope.user.email, "Left");
+						publishMessage(statusMessage);
+						$scope.user = null;
+						// sendPublishMessage(statusMessage);
 						$scope.currentPageUrl = 'login.htm';
 					} else {
 						$scope.errorMessage = errorMessage;
-						$scope.validCridentials = false;
 					}
 
 				}, function errorCallback(){
 
 				});
 			}
+
+			// Cette fonction permet d'ouvrir le websocket de type "subscriber"
+			function subscribe() {
+				socketUrl += socketToken;
+				if(wsSubscriber==null){
+					wsSubscriber = new WebSocket(socketUrl);
+				}else {
+					sendSucscibeMessage();
+				}
+				// wsSubscriber = new WebSocket(socketUrl);
+				wsSubscriber.onopen = function () {
+					sendSucscibeMessage();
+				};
+
+				wsSubscriber.onclose = function (obj) {
+					var statusMessage = new StatusMessage($scope.user.username, $scope.user.email, "Left");
+					publishMessage(statusMessage);
+				};
+
+				wsSubscriber.onmessage = function (event) {
+					//Received Broadcast Message
+					var msg = JSON.parse(event.data);
+					if (msg.from) {
+						addReceivedMessage(msg);
+					} else if ((msg.email) && ($scope.user!=null)) {
+						addStatusMessage(msg);
+					}
+				};
+
+				wsSubscriber.onerror = function (error) {
+					// console.log("Error on Publisher websocket " + error);
+				};
+			}
+
+			// cette fonction publie un message 
+			function publishMessage(objMsg) {
+				if(wsPublisher==null){
+					wsPublisher = new WebSocket(socketUrl);
+				}else{
+					sendPublishMessage(objMsg);
+				}
+				// wsPublisher = new WebSocket(socketUrl);
+				wsPublisher.onopen = function () {
+					sendPublishMessage(objMsg);
+				};
+
+				wsPublisher.onclose = function (obj) {
+					console.log("Publisher closed " + JSON.stringify(obj));
+				};
+
+				wsPublisher.onmessage = function (event) {
+					console.log("Publisher Message");
+				};
+
+				wsPublisher.onerror = function (error) {
+					console.log("Publisher Error");
+				};
+			}
+
+			function sendPublishMessage(objMsg){
+				var serverMessage = {
+					"method": "Publish",
+					"params": {
+						"channel": "pubsub_private",
+						"message": JSON.stringify(objMsg.toJson())
+					}
+				};
+				wsPublisher.send(JSON.stringify(serverMessage));
+			}
+
+			function sendSucscibeMessage(){
+				console.log("user joined conv");
+				var msg = {"method": "Subscribe", "params": {"channel": "pubsub_private"}};
+				wsSubscriber.send(JSON.stringify(msg));
+
+				var statusMessage = new StatusMessage($scope.user.username, $scope.user.email, "Joined");
+				publishMessage(statusMessage);
+			}
+
+
+			function addReceivedMessage(message) {
+
+                var txtConversation = document.getElementById("txtConversation");
+
+                txtConversation.value += message.from + ": " + message.text + " \t " + convertDateTime(message.date) + "\n\n";
+                txtConversation.scrollTop = txtConversation.scrollHeight;
+                if (message.from !== $scope.username) {
+                    playSoundMessage();
+                    if (!document.hasFocus()) {
+                        var notificationMsg = new NotificationMsg(message,"new_msg");
+                        // showMsgInNotif(notificationMsg);
+                    }
+                }
+            }
+
+            // Cette fonction ajoute les messages de status (joined et left) dans la page
+            function addStatusMessage(message) {
+                var slctUsers = document.getElementById('slctUsers');
+                // resetSelectedOption(slctUsers);
+                var option = document.createElement("option");
+
+                if (message.username === $scope.user.username) {
+                    option.innerHTML = "You Have Just " + message.type + " ChitChat";
+                } else {
+                    var type = "";
+                    if (message.type === "Joined") {
+                        playSoundJoin();
+                        type = "joined";
+                    }
+                    if (message.type === "Left") {
+                        playSoundLeft();
+                        type = "left";
+                    }
+                    option.innerHTML = message.username + " Has Just " + message.type + " ChitChat";
+                    var notificationMsg = new NotificationMsg(message, type);
+                    // showMsgInNotif(notificationMsg);
+                    option.setAttribute("data-toggle", "modal");
+                    option.setAttribute("data-target", "#sendEmailModal");
+                }
+                option.id = message.email;
+                // L'option est sélectionnée par default pour la laisser visible
+                // Au cas où la liste des utilisateurs et les évènements (joined et left) est longue
+                option.selected = true;
+                option.onclick = onOptionClickListener;
+                slctUsers.appendChild(option);
+            }
+
+            // Cette fonction permet de publier les messages instantanes
+            $scope.sendInstantMessage = function() {
+                var msgValue = $scope.instantMessage;
+                msgValue = msgValue.trim();
+                if (msgValue !== "") {
+                    var message = new Message($scope.user.username, msgValue);
+                    publishMessage(message);
+                }
+
+                $scope.instantMessage = "";
+            }
+
+            // Cette fonction est un Listener qui permet d'envoyer des messages instantanes quand on clique sur ENTER
+            $scope.sendInstantMessageOnEnter = function($event) {
+                event.preventDefault();
+                if (event.keyCode === 13) {
+                    $scope.sendInstantMessage();
+                }
+            }
 
 		});
 
