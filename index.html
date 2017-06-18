@@ -8,6 +8,7 @@
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+	<link rel="stylesheet" href="css/main.css">
 </head>
 <body>
 	<div ng-app="ChitChatApp" ng-controller="ChitChatController">
@@ -381,17 +382,25 @@
 
 			function addReceivedMessage(message) {
 
-                var txtConversation = document.getElementById("txtConversation");
+                // var txtConversation = document.getElementById("txtConversation");
 
-                txtConversation.value += message.from + ": " + message.text + " \t " + convertDateTime(message.date) + "\n\n";
-                txtConversation.scrollTop = txtConversation.scrollHeight;
+                // txtConversation.value += message.from + ": " + message.text + " \t " + convertDateTime(message.date) + "\n\n";
+                // txtConversation.scrollTop = txtConversation.scrollHeight;
+                // if (message.from !== $scope.username) {
+                //     playSoundMessage();
+                //     if (!document.hasFocus()) {
+                //         var notificationMsg = new NotificationMsg(message,"new_msg");
+                //         // showMsgInNotif(notificationMsg);
+                //     }
+                // }
+
                 if (message.from !== $scope.username) {
-                    playSoundMessage();
-                    if (!document.hasFocus()) {
-                        var notificationMsg = new NotificationMsg(message,"new_msg");
-                        // showMsgInNotif(notificationMsg);
-                    }
+                	playSoundMessage();
+                	receiveNewMessage(message.text, message.from, convertDateTime(message.date));
+                }else{
+                	sendNewMessage(message.text, convertDateTime(message.date));
                 }
+
             }
 
             // Cette fonction ajoute les messages de status (joined et left) dans la page
@@ -446,8 +455,87 @@
                 }
             }
 
-		});
 
+            function sendNewMessage(messageContent, messageTime) {
+				var messageBodyDiv = document.createElement('div');
+				messageBodyDiv.className = 'row message-body';
+
+				var messageMainSenderDiv = document.createElement('div');
+				messageMainSenderDiv.className = 'col-sm-12 message-main-sender';
+
+				var senderDiv = document.createElement('div');
+				senderDiv.className = 'sender';
+
+				var messageTextDiv = document.createElement('div');
+				messageTextDiv.className = 'message-text';
+
+				var content = document.createTextNode(messageContent);
+
+				var messageTimeSpan = document.createElement('span');
+				messageTimeSpan.className = 'message-time pull-right';
+
+				var messageTimeSpanContent = document.createTextNode(messageTime);
+
+				messageTimeSpan.appendChild(messageTimeSpanContent);
+
+				messageTextDiv.appendChild(content);
+				senderDiv.appendChild(messageTextDiv);
+				senderDiv.appendChild(messageTimeSpan);
+				messageMainSenderDiv.appendChild(senderDiv);
+				messageBodyDiv.appendChild(messageMainSenderDiv);
+
+				var conversationSection = document.getElementById('conversation');
+				conversationSection.appendChild(messageBodyDiv);
+
+				scrollConversationSection();
+			}
+
+			function receiveNewMessage(messageContent, sender, messageTime) {
+				var messageBodyDiv = document.createElement('div');
+				messageBodyDiv.className = 'row message-body';
+
+				var messageMainSenderDiv = document.createElement('div');
+				messageMainSenderDiv.className = 'col-sm-12 message-main-receiver';
+
+				var senderDiv = document.createElement('div');
+				senderDiv.className = 'receiver';
+
+				var senderNameSpan = document.createElement('span');
+				senderNameSpan.className = 'sender-name';
+				senderNameSpan.innerHTML = sender;
+
+				var messageTextDiv = document.createElement('div');
+				messageTextDiv.className = 'message-text';
+
+				var content = document.createTextNode(messageContent);
+
+				var messageTimeSpan = document.createElement('span');
+				messageTimeSpan.className = 'message-time pull-right';
+
+				var messageTimeSpanContent = document.createTextNode(messageTime);
+
+				messageTimeSpan.appendChild(messageTimeSpanContent);
+
+				messageTextDiv.appendChild(content);
+				senderDiv.appendChild(senderNameSpan);
+				senderDiv.appendChild(messageTextDiv);
+				senderDiv.appendChild(messageTimeSpan);
+				messageMainSenderDiv.appendChild(senderDiv);
+				messageBodyDiv.appendChild(messageMainSenderDiv);
+
+				var conversationSection = document.getElementById('conversation');
+				conversationSection.appendChild(messageBodyDiv);
+
+				scrollConversationSection();
+			}
+
+			function scrollConversationSection() {
+				var conversationWrapper = document.getElementById('conversation-wrapper');
+				conversationWrapper.scrollTop = conversationWrapper.scrollHeight;
+			}
+
+
+		});
 	</script>
 </body>
 </html>
