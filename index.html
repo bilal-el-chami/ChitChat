@@ -449,8 +449,8 @@
 
             // Cette fonction est un Listener qui permet d'envoyer des messages instantanes quand on clique sur ENTER
             $scope.sendInstantMessageOnEnter = function($event) {
-                event.preventDefault();
-                if (event.keyCode === 13) {
+                $event.preventDefault();
+                if ($event.keyCode === 13) {
                     $scope.sendInstantMessage();
                 }
             }
